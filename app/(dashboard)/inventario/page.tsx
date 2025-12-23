@@ -81,7 +81,7 @@ function AssignForm({ products, branches, inventory, onAssign, onSuccess, onCanc
       item.products[0]?.id === selectedProductId &&
       item.branches[0]?.name === 'acriestilo-cucuta'
     )
-    return mainInventory ? mainInventory.quantity : 0
+    return mainInventory ? mainInventory.quantity : selectedProduct.quantity
   })() : 0
 
   return (
