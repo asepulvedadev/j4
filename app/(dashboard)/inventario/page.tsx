@@ -65,9 +65,10 @@ async function getBranches() {
   return branches || []
 }
 
-function AssignForm({ products, branches, onAssign, onSuccess, onCancel }: {
+function AssignForm({ products, branches, inventory, onAssign, onSuccess, onCancel }: {
   products: Product[]
   branches: Branch[]
+  inventory: InventoryItem[]
   onAssign: (productId: number, branchId: number, quantity: number) => Promise<void>
   onSuccess: () => void
   onCancel: () => void
@@ -75,7 +76,13 @@ function AssignForm({ products, branches, onAssign, onSuccess, onCancel }: {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
   const selectedProduct = products.find(p => p.id === selectedProductId)
 
-  const available = selectedProduct ? selectedProduct.quantity : 0
+  const available = selectedProduct ? (() => {
+    const mainInventory = inventory.find(item =>
+      item.products[0]?.id === selectedProductId &&
+      item.branches[0]?.name === 'acriestilo-cucuta'
+    )
+    return mainInventory ? mainInventory.quantity : 0
+  })() : 0
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -324,6 +331,7 @@ export default function InventarioPage() {
         <AssignForm
           products={products}
           branches={branches.filter(b => b.name !== 'acriestilo-cucuta')}
+          inventory={inventory}
           onAssign={handleAssign}
           onSuccess={() => {
             fetchData()
