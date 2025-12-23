@@ -41,6 +41,7 @@ async function getInventory() {
         thickness
       )
     `)
+    .gt('quantity', 0)
     .order('products(type)', { ascending: true })
 
   return inventory || []
