@@ -15,6 +15,7 @@ interface Product {
   dimensions: string
   color?: string
   thickness?: number
+  quantity: number
 }
 
 interface Branch {
@@ -62,6 +63,78 @@ async function getBranches() {
     .select('id, name')
     .order('name')
   return branches || []
+}
+
+function AssignForm({ products, branches, onAssign, onSuccess, onCancel }: {
+  products: Product[]
+  branches: Branch[]
+  onAssign: (productId: number, branchId: number, quantity: number) => Promise<void>
+  onSuccess: () => void
+  onCancel: () => void
+}) {
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const selectedProduct = products.find(p => p.id === selectedProductId)
+
+  const available = selectedProduct ? selectedProduct.quantity : 0
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-card border border-border p-6 rounded-lg max-w-md w-full">
+        <h2 className="text-xl font-bold mb-4 text-foreground">Asignar Producto a Sede</h2>
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          const formData = new FormData(e.target as HTMLFormElement)
+          const productId = parseInt(formData.get('product_id') as string)
+          const branchId = parseInt(formData.get('branch_id') as string)
+          const quantity = parseInt(formData.get('quantity') as string)
+          try {
+            await onAssign(productId, branchId, quantity)
+            onSuccess()
+          } catch (error) {
+            console.error('Error al asignar producto:', error)
+            alert('Error al asignar producto')
+          }
+        }} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground">Producto</label>
+            <select
+              name="product_id"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
+              required
+              onChange={(e) => setSelectedProductId(parseInt(e.target.value) || null)}
+            >
+              <option value="">Seleccionar producto</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.type} - {product.dimensions} {product.color ? `- ${product.color}` : ''}
+                </option>
+              ))}
+            </select>
+            {selectedProduct && (
+              <p className="text-sm text-muted-foreground mt-1">Disponible: {available} unidades</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground">Sede</label>
+            <select name="branch_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
+              <option value="">Seleccionar sede</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground">Cantidad</label>
+            <input name="quantity" type="number" min="1" max={available} className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Asignar</button>
+            <button type="button" onClick={onCancel} className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 export default function InventarioPage() {
@@ -248,54 +321,16 @@ export default function InventarioPage() {
 
       {/* Assign Form */}
       {showAssignForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-card border border-border p-6 rounded-lg max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4 text-foreground">Asignar Producto a Sede</h2>
-            <form onSubmit={async (e) => {
-              e.preventDefault()
-              const formData = new FormData(e.target as HTMLFormElement)
-              const productId = parseInt(formData.get('product_id') as string)
-              const branchId = parseInt(formData.get('branch_id') as string)
-              const quantity = parseInt(formData.get('quantity') as string)
-              try {
-                await handleAssign(productId, branchId, quantity)
-                setShowAssignForm(false)
-              } catch (error) {
-                console.error('Error al asignar producto:', error)
-                alert('Error al asignar producto')
-              }
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground">Producto</label>
-                <select name="product_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
-                  <option value="">Seleccionar producto</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.type} - {product.dimensions} {product.color ? `- ${product.color}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground">Sede</label>
-                <select name="branch_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
-                  <option value="">Seleccionar sede</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>{branch.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground">Cantidad</label>
-                <input name="quantity" type="number" min="1" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required />
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Asignar</button>
-                <button type="button" onClick={() => setShowAssignForm(false)} className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80">Cancelar</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AssignForm
+          products={products}
+          branches={branches.filter(b => b.name !== 'acriestilo-cucuta')}
+          onAssign={handleAssign}
+          onSuccess={() => {
+            fetchData()
+            setShowAssignForm(false)
+          }}
+          onCancel={() => setShowAssignForm(false)}
+        />
       )}
 
       {/* Transfer Form */}
@@ -361,7 +396,7 @@ export default function InventarioPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {Object.entries(inventoryByBranch).filter(([branch]) => branch !== 'Sin Sede').map(([branch, items]) => (
+        {Object.entries(inventoryByBranch).filter(([branch]) => branch !== 'Sin Sede' && branch !== 'acriestilo-cucuta').map(([branch, items]) => (
           <div key={branch} className="bg-card rounded-lg border border-border overflow-hidden">
             <div className="px-6 py-4 border-b border-border bg-muted/50">
               <h3 className="text-lg font-semibold text-foreground">{branch}</h3>
