@@ -188,7 +188,7 @@ export default function InventarioPage() {
 
   // Group by branch
   const inventoryByBranch = inventory.reduce((acc, item) => {
-    const branchName = item.branches[0]?.name || 'Unknown'
+    const branchName = item.branches[0]?.name || 'Sin Sede'
     if (!acc[branchName]) {
       acc[branchName] = []
     }
@@ -199,7 +199,7 @@ export default function InventarioPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Inventario por Sede</h1>
+        <h1 className="text-3xl font-bold text-foreground">Asignación de Inventario por Sede</h1>
         <p className="text-muted-foreground mt-2">
           Control de stock distribuido en las diferentes sedes
         </p>
