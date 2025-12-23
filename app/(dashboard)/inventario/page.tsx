@@ -3,6 +3,25 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+interface InventoryItem {
+  quantity: number
+  branches: { name: string }[]
+  products: { id: number; type: string; dimensions: string; color?: string; thickness?: number }[]
+}
+
+interface Product {
+  id: number
+  type: string
+  dimensions: string
+  color?: string
+  thickness?: number
+}
+
+interface Branch {
+  id: number
+  name: string
+}
+
 async function getInventory() {
   const supabase = await createClient()
 
@@ -46,27 +65,25 @@ async function getBranches() {
 }
 
 export default function InventarioPage() {
-  const [inventory, setInventory] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
-  const [branches, setBranches] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
   const [showAssignForm, setShowAssignForm] = useState(false)
   const [showTransferForm, setShowTransferForm] = useState(false)
 
   const fetchData = async () => {
-    setLoading(true)
     const [inventoryData, productsData, branchesData] = await Promise.all([
       getInventory(),
       getProducts(),
       getBranches()
     ])
-    setInventory(inventoryData)
-    setProducts(productsData)
-    setBranches(branchesData)
-    setLoading(false)
+    setInventory(inventoryData as InventoryItem[])
+    setProducts(productsData as Product[])
+    setBranches(branchesData as Branch[])
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
   }, [])
 
@@ -171,13 +188,13 @@ export default function InventarioPage() {
 
   // Group by branch
   const inventoryByBranch = inventory.reduce((acc, item) => {
-    const branchName = (item.branches as unknown as { name: string })?.name || 'Unknown'
+    const branchName = item.branches[0]?.name || 'Unknown'
     if (!acc[branchName]) {
       acc[branchName] = []
     }
     acc[branchName].push(item)
     return acc
-  }, {} as Record<string, typeof inventory>)
+  }, {} as Record<string, InventoryItem[]>)
 
   return (
     <div className="space-y-6">
@@ -218,6 +235,7 @@ export default function InventarioPage() {
                 await handleAssign(productId, branchId, quantity)
                 setShowAssignForm(false)
               } catch (error) {
+                console.error('Error al asignar producto:', error)
                 alert('Error al asignar producto')
               }
             }} className="space-y-4">
@@ -270,6 +288,7 @@ export default function InventarioPage() {
                 await handleTransfer(productId, fromBranchId, toBranchId, quantity)
                 setShowTransferForm(false)
               } catch (error) {
+                console.error('Error al transferir producto:', error)
                 alert('Error al transferir producto')
               }
             }} className="space-y-4">
@@ -332,15 +351,15 @@ export default function InventarioPage() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <p className="text-sm font-medium text-foreground">
-                          {(item.products as unknown as { type: string })?.type === 'acrilico_cast' ? 'Acrílico Cast' :
-                           (item.products as unknown as { type: string })?.type === 'espejo' ? 'Espejo' : 'Accesorios'}
+                          {item.products[0]?.type === 'acrilico_cast' ? 'Acrílico Cast' :
+                           item.products[0]?.type === 'espejo' ? 'Espejo' : 'Accesorios'}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {(item.products as unknown as { dimensions: string })?.dimensions}
+                          {item.products[0]?.dimensions}
                         </p>
-                        {(item.products as unknown as { color: string })?.color && (
+                        {item.products[0]?.color && (
                           <p className="text-xs text-muted-foreground">
-                            {(item.products as unknown as { color: string })?.color}
+                            {item.products[0]?.color}
                           </p>
                         )}
                       </div>
