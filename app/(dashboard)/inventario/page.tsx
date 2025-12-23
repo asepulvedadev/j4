@@ -89,6 +89,32 @@ export default function InventarioPage() {
 
   const handleAssign = async (productId: number, branchId: number, quantity: number) => {
     const supabase = createClient()
+
+    // Check total available quantity
+    const { data: product } = await supabase
+      .from('products')
+      .select('quantity')
+      .eq('id', productId)
+      .single()
+
+    if (!product) {
+      alert('Producto no encontrado')
+      return
+    }
+
+    // Check current total assigned
+    const { data: inventories } = await supabase
+      .from('inventory')
+      .select('quantity')
+      .eq('product_id', productId)
+
+    const totalAssigned = inventories?.reduce((sum, inv) => sum + inv.quantity, 0) || 0
+
+    if (totalAssigned + quantity > product.quantity) {
+      alert(`No se puede asignar más de ${product.quantity - totalAssigned} unidades. Total disponible: ${product.quantity}`)
+      return
+    }
+
     // Check if inventory exists
     const { data: existing } = await supabase
       .from('inventory')
@@ -335,7 +361,7 @@ export default function InventarioPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {Object.entries(inventoryByBranch).map(([branch, items]) => (
+        {Object.entries(inventoryByBranch).filter(([branch]) => branch !== 'Sin Sede').map(([branch, items]) => (
           <div key={branch} className="bg-card rounded-lg border border-border overflow-hidden">
             <div className="px-6 py-4 border-b border-border bg-muted/50">
               <h3 className="text-lg font-semibold text-foreground">{branch}</h3>
