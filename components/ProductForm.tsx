@@ -93,16 +93,16 @@ export default function ProductForm({ product, imports, onSuccess, isOpen, onOpe
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">{product ? 'Editar Producto' : 'Crear Producto'}</h2>
+      <div className="bg-card border border-border p-6 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-bold mb-4 text-foreground">{product ? 'Editar Producto' : 'Crear Producto'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="import_id" className="block text-sm font-medium">Importación</label>
+            <label htmlFor="import_id" className="block text-sm font-medium text-foreground">Importación</label>
             <select
               id="import_id"
               value={formData.import_id}
               onChange={(e) => setFormData({ ...formData, import_id: parseInt(e.target.value) })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
               required
             >
               <option value="">Seleccionar importación</option>
@@ -115,12 +115,12 @@ export default function ProductForm({ product, imports, onSuccess, isOpen, onOpe
           </div>
 
           <div>
-            <label htmlFor="type" className="block text-sm font-medium">Tipo</label>
+            <label htmlFor="type" className="block text-sm font-medium text-foreground">Tipo</label>
             <select
               id="type"
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as 'acrilico_cast' | 'espejo' | 'accesorios' })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
               required
             >
               <option value="acrilico_cast">Acrílico Cast</option>
@@ -130,73 +130,73 @@ export default function ProductForm({ product, imports, onSuccess, isOpen, onOpe
           </div>
 
           <div>
-            <label htmlFor="dimensions" className="block text-sm font-medium">Dimensiones (ej: 1200x600)</label>
+            <label htmlFor="dimensions" className="block text-sm font-medium text-foreground">Dimensiones (ej: 1200x600)</label>
             <input
               id="dimensions"
               type="text"
               value={formData.dimensions}
               onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="thickness" className="block text-sm font-medium">Espesor (mm)</label>
+            <label htmlFor="thickness" className="block text-sm font-medium text-foreground">Espesor (mm)</label>
             <input
               id="thickness"
               type="number"
               step="0.01"
               value={formData.thickness || ''}
               onChange={(e) => setFormData({ ...formData, thickness: parseFloat(e.target.value) || undefined })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
             />
           </div>
 
           <div>
-            <label htmlFor="color" className="block text-sm font-medium">Color</label>
+            <label htmlFor="color" className="block text-sm font-medium text-foreground">Color</label>
             <input
               id="color"
               type="text"
               value={formData.color || ''}
               onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
             />
           </div>
 
           <div>
-            <label htmlFor="weight_per_unit" className="block text-sm font-medium">Peso por unidad (kg)</label>
+            <label htmlFor="weight_per_unit" className="block text-sm font-medium text-foreground">Peso por unidad (kg)</label>
             <input
               id="weight_per_unit"
               type="number"
               step="0.01"
               value={formData.weight_per_unit || ''}
               onChange={(e) => setFormData({ ...formData, weight_per_unit: parseFloat(e.target.value) || undefined })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
             />
           </div>
 
           <div>
-            <label htmlFor="quantity" className="block text-sm font-medium">Cantidad</label>
+            <label htmlFor="quantity" className="block text-sm font-medium text-foreground">Cantidad</label>
             <input
               id="quantity"
               type="number"
               value={formData.quantity}
               onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="unit_cost_cop" className="block text-sm font-medium">Costo unitario COP</label>
+            <label htmlFor="unit_cost_cop" className="block text-sm font-medium text-foreground">Costo unitario COP</label>
             <input
               id="unit_cost_cop"
               type="number"
               step="0.01"
               value={formData.unit_cost_cop}
               onChange={(e) => setFormData({ ...formData, unit_cost_cop: parseFloat(e.target.value) || 0 })}
-              className="mt-1 block w-full border border-gray-300 rounded px-3 py-2"
+              className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground"
               required
             />
           </div>
@@ -205,14 +205,14 @@ export default function ProductForm({ product, imports, onSuccess, isOpen, onOpe
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? 'Guardando...' : (product ? 'Actualizar' : 'Crear')}
             </button>
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80"
             >
               Cancelar
             </button>
