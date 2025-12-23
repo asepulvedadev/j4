@@ -1,88 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState } from 'react'
+import { z } from 'zod'
+import { useInventoryStore, assignSchema, transferSchema } from '@/lib/store/inventory'
 
-interface InventoryItem {
-  quantity: number
-  branches: { name: string }[]
-  products: { id: number; type: string; dimensions: string; color?: string; thickness?: number }[]
-}
-
-interface Product {
-  id: number
-  type: string
-  dimensions: string
-  color?: string
-  thickness?: number
-  quantity: number
-}
-
-interface Branch {
-  id: number
-  name: string
-}
-
-async function getInventory() {
-  const supabase = await createClient()
-
-  const { data: inventory } = await supabase
-    .from('inventory')
-    .select(`
-      quantity,
-      branches (
-        name
-      ),
-      products (
-        id,
-        type,
-        dimensions,
-        color,
-        thickness
-      )
-    `)
-    .gt('quantity', 0)
-    .order('products(type)', { ascending: true })
-
-  return inventory || []
-}
-
-async function getProducts() {
-  const supabase = await createClient()
-  const { data: products } = await supabase
-    .from('products')
-    .select('id, type, dimensions, color, thickness, quantity')
-    .order('type', { ascending: false })
-    .order('created_at', { ascending: false })
-  return products || []
-}
-
-async function getBranches() {
-  const supabase = await createClient()
-  const { data: branches } = await supabase
-    .from('branches')
-    .select('id, name')
-    .order('name')
-  return branches || []
-}
-
-function AssignForm({ products, branches, inventory, onAssign, onSuccess, onCancel }: {
-  products: Product[]
-  branches: Branch[]
-  inventory: InventoryItem[]
-  onAssign: (productId: number, branchId: number, quantity: number) => Promise<void>
+function AssignForm({ onSuccess, onCancel }: {
   onSuccess: () => void
   onCancel: () => void
 }) {
+  const { products, branches, inventory, handleAssign } = useInventoryStore()
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const selectedProduct = products.find(p => p.id === selectedProductId)
 
   const available = selectedProduct ? (() => {
     const mainInventory = inventory.find(item =>
-      item.products[0]?.id === selectedProductId &&
-      item.branches[0]?.name === 'acriestilo-cucuta'
+      item.product?.id === selectedProductId &&
+      item.branchName === 'acriestilo-cucuta'
     )
-    return mainInventory ? mainInventory.quantity : selectedProduct.quantity
+    return mainInventory ? mainInventory.quantity : 0
   })() : 0
 
   return (
@@ -92,15 +28,26 @@ function AssignForm({ products, branches, inventory, onAssign, onSuccess, onCanc
         <form onSubmit={async (e) => {
           e.preventDefault()
           const formData = new FormData(e.target as HTMLFormElement)
-          const productId = parseInt(formData.get('product_id') as string)
-          const branchId = parseInt(formData.get('branch_id') as string)
-          const quantity = parseInt(formData.get('quantity') as string)
+          const data = {
+            product_id: parseInt(formData.get('product_id') as string),
+            branch_id: parseInt(formData.get('branch_id') as string),
+            quantity: parseInt(formData.get('quantity') as string)
+          }
           try {
-            await onAssign(productId, branchId, quantity)
+            assignSchema.parse(data)
+            await handleAssign(data.product_id, data.branch_id, data.quantity)
+            setErrors({})
             onSuccess()
           } catch (error) {
-            console.error('Error al asignar producto:', error)
-            alert('Error al asignar producto')
+            if (error instanceof z.ZodError) {
+              const errorMap = error.issues.reduce((acc: Record<string, string>, err: z.ZodIssue) => {
+                acc[err.path[0] as string] = err.message
+                return acc
+              }, {} as Record<string, string>)
+              setErrors(errorMap)
+            } else {
+              setErrors({ general: 'Error al asignar producto' })
+            }
           }
         }} className="space-y-4">
           <div>
@@ -114,10 +61,11 @@ function AssignForm({ products, branches, inventory, onAssign, onSuccess, onCanc
               <option value="">Seleccionar producto</option>
               {products.map((product) => (
                 <option key={product.id} value={product.id}>
-                  {product.type} - {product.dimensions} {product.color ? `- ${product.color}` : ''}
+                  {product.dimensions} {product.color && `- ${product.color}`} {product.thickness && `- ${product.thickness}mm`}
                 </option>
               ))}
             </select>
+            {errors.product_id && <p className="text-red-500 text-sm">{errors.product_id}</p>}
             {selectedProduct && (
               <p className="text-sm text-muted-foreground mt-1">Disponible: {available} unidades</p>
             )}
@@ -126,15 +74,18 @@ function AssignForm({ products, branches, inventory, onAssign, onSuccess, onCanc
             <label className="block text-sm font-medium text-foreground">Sede</label>
             <select name="branch_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
               <option value="">Seleccionar sede</option>
-              {branches.map((branch) => (
+              {branches.filter(b => b.name !== 'acriestilo-cucuta').map((branch) => (
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
             </select>
+            {errors.branch_id && <p className="text-red-500 text-sm">{errors.branch_id}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground">Cantidad</label>
             <input name="quantity" type="number" min="1" max={available} className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required />
+            {errors.quantity && <p className="text-red-500 text-sm">{errors.quantity}</p>}
           </div>
+          {errors.general && <p className="text-red-500 text-sm">{errors.general}</p>}
           <div className="flex gap-2">
             <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Asignar</button>
             <button type="button" onClick={onCancel} className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80">Cancelar</button>
@@ -145,163 +96,122 @@ function AssignForm({ products, branches, inventory, onAssign, onSuccess, onCanc
   )
 }
 
-export default function InventarioPage() {
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [showAssignForm, setShowAssignForm] = useState(false)
-  const [showTransferForm, setShowTransferForm] = useState(false)
+function TransferForm({ onSuccess, onCancel }: {
+  onSuccess: () => void
+  onCancel: () => void
+}) {
+  const { products, branches, handleTransfer } = useInventoryStore()
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const fetchData = async () => {
-    const [inventoryData, productsData, branchesData] = await Promise.all([
-      getInventory(),
-      getProducts(),
-      getBranches()
-    ])
-    setInventory(inventoryData as InventoryItem[])
-    setProducts(productsData as Product[])
-    setBranches(branchesData as Branch[])
-  }
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-card border border-border p-6 rounded-lg max-w-md w-full">
+        <h2 className="text-xl font-bold mb-4 text-foreground">Transferir Producto</h2>
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          const formData = new FormData(e.target as HTMLFormElement)
+          const data = {
+            product_id: parseInt(formData.get('product_id') as string),
+            from_branch_id: parseInt(formData.get('from_branch_id') as string),
+            to_branch_id: parseInt(formData.get('to_branch_id') as string),
+            quantity: parseInt(formData.get('quantity') as string)
+          }
+          try {
+            transferSchema.parse(data)
+            await handleTransfer(data.product_id, data.from_branch_id, data.to_branch_id, data.quantity)
+            setErrors({})
+            onSuccess()
+          } catch (error) {
+            if (error instanceof z.ZodError) {
+              const errorMap = error.issues.reduce((acc: Record<string, string>, err: z.ZodIssue) => {
+                acc[err.path[0] as string] = err.message
+                return acc
+              }, {} as Record<string, string>)
+              setErrors(errorMap)
+            } else {
+              setErrors({ general: 'Error al transferir producto' })
+            }
+          }
+        }} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground">Producto</label>
+            <select name="product_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
+              <option value="">Seleccionar producto</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.dimensions} {product.color && `- ${product.color}`} {product.thickness && `- ${product.thickness}mm`}
+                </option>
+              ))}
+            </select>
+            {errors.product_id && <p className="text-red-500 text-sm">{errors.product_id}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground">De Sede</label>
+            <select name="from_branch_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
+              <option value="">Seleccionar sede origen</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
+            </select>
+            {errors.from_branch_id && <p className="text-red-500 text-sm">{errors.from_branch_id}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground">A Sede</label>
+            <select name="to_branch_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
+              <option value="">Seleccionar sede destino</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
+            </select>
+            {errors.to_branch_id && <p className="text-red-500 text-sm">{errors.to_branch_id}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground">Cantidad</label>
+            <input name="quantity" type="number" min="1" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required />
+            {errors.quantity && <p className="text-red-500 text-sm">{errors.quantity}</p>}
+          </div>
+          {errors.general && <p className="text-red-500 text-sm">{errors.general}</p>}
+          <div className="flex gap-2">
+            <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Transferir</button>
+            <button type="button" onClick={onCancel} className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function InventarioPage() {
+  const {
+    inventory,
+    branches,
+    mainBranch,
+    loading,
+    error,
+    showAssignForm,
+    showTransferForm,
+    setShowAssignForm,
+    setShowTransferForm,
+    fetchData,
+    handleTransfer
+  } = useInventoryStore()
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData()
-  }, [])
+  }, [fetchData])
 
-  const handleAssign = async (productId: number, branchId: number, quantity: number) => {
-    const supabase = createClient()
-
-    // Check total available quantity
-    const { data: product } = await supabase
-      .from('products')
-      .select('quantity')
-      .eq('id', productId)
-      .single()
-
-    if (!product) {
-      alert('Producto no encontrado')
-      return
-    }
-
-    // Check current total assigned
-    const { data: inventories } = await supabase
-      .from('inventory')
-      .select('quantity')
-      .eq('product_id', productId)
-
-    const totalAssigned = inventories?.reduce((sum, inv) => sum + inv.quantity, 0) || 0
-
-    if (totalAssigned + quantity > product.quantity) {
-      alert(`No se puede asignar más de ${product.quantity - totalAssigned} unidades. Total disponible: ${product.quantity}`)
-      return
-    }
-
-    // Check if inventory exists
-    const { data: existing } = await supabase
-      .from('inventory')
-      .select('quantity')
-      .eq('product_id', productId)
-      .eq('branch_id', branchId)
-      .single()
-
-    if (existing) {
-      // Update
-      const { error } = await supabase
-        .from('inventory')
-        .update({ quantity: existing.quantity + quantity })
-        .eq('product_id', productId)
-        .eq('branch_id', branchId)
-      if (error) throw error
-    } else {
-      // Insert
-      const { error } = await supabase
-        .from('inventory')
-        .insert({ product_id: productId, branch_id: branchId, quantity })
-      if (error) throw error
-    }
-
-    // Log movement
-    await supabase
-      .from('inventory_movements')
-      .insert({
-        product_id: productId,
-        to_branch_id: branchId,
-        quantity,
-        type: 'entrada'
-      })
-
-    fetchData()
-  }
-
-  const handleTransfer = async (productId: number, fromBranchId: number, toBranchId: number, quantity: number) => {
-    const supabase = createClient()
-
-    // Check available quantity
-    const { data: fromInventory } = await supabase
-      .from('inventory')
-      .select('quantity')
-      .eq('product_id', productId)
-      .eq('branch_id', fromBranchId)
-      .single()
-
-    if (!fromInventory || fromInventory.quantity < quantity) {
-      alert('Cantidad insuficiente en la sede origen')
-      return
-    }
-
-    // Update from branch
-    const { error: error1 } = await supabase
-      .from('inventory')
-      .update({ quantity: fromInventory.quantity - quantity })
-      .eq('product_id', productId)
-      .eq('branch_id', fromBranchId)
-    if (error1) throw error1
-
-    // Update to branch
-    const { data: toInventory } = await supabase
-      .from('inventory')
-      .select('quantity')
-      .eq('product_id', productId)
-      .eq('branch_id', toBranchId)
-      .single()
-
-    if (toInventory) {
-      const { error: error2 } = await supabase
-        .from('inventory')
-        .update({ quantity: toInventory.quantity + quantity })
-        .eq('product_id', productId)
-        .eq('branch_id', toBranchId)
-      if (error2) throw error2
-    } else {
-      const { error: error3 } = await supabase
-        .from('inventory')
-        .insert({ product_id: productId, branch_id: toBranchId, quantity })
-      if (error3) throw error3
-    }
-
-    // Log movement
-    await supabase
-      .from('inventory_movements')
-      .insert({
-        product_id: productId,
-        from_branch_id: fromBranchId,
-        to_branch_id: toBranchId,
-        quantity,
-        type: 'transferencia'
-      })
-
-    fetchData()
-  }
+  if (loading) return <div>Cargando...</div>
+  if (error) return <div>Error: {error}</div>
 
   // Group by branch
   const inventoryByBranch = inventory.reduce((acc, item) => {
-    const branchName = item.branches[0]?.name || 'Sin Sede'
+    const branchName = item.branchName || 'Sin Sede'
     if (!acc[branchName]) {
       acc[branchName] = []
     }
     acc[branchName].push(item)
     return acc
-  }, {} as Record<string, InventoryItem[]>)
+  }, {} as Record<string, typeof inventory>)
 
   return (
     <div className="space-y-6">
@@ -330,122 +240,56 @@ export default function InventarioPage() {
       {/* Assign Form */}
       {showAssignForm && (
         <AssignForm
-          products={products}
-          branches={branches.filter(b => b.name !== 'acriestilo-cucuta')}
-          inventory={inventory}
-          onAssign={handleAssign}
-          onSuccess={() => {
-            fetchData()
-            setShowAssignForm(false)
-          }}
+          onSuccess={() => setShowAssignForm(false)}
           onCancel={() => setShowAssignForm(false)}
         />
       )}
 
       {/* Transfer Form */}
       {showTransferForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-card border border-border p-6 rounded-lg max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4 text-foreground">Transferir Producto</h2>
-            <form onSubmit={async (e) => {
-              e.preventDefault()
-              const formData = new FormData(e.target as HTMLFormElement)
-              const productId = parseInt(formData.get('product_id') as string)
-              const fromBranchId = parseInt(formData.get('from_branch_id') as string)
-              const toBranchId = parseInt(formData.get('to_branch_id') as string)
-              const quantity = parseInt(formData.get('quantity') as string)
-              try {
-                await handleTransfer(productId, fromBranchId, toBranchId, quantity)
-                setShowTransferForm(false)
-              } catch (error) {
-                console.error('Error al transferir producto:', error)
-                alert('Error al transferir producto')
-              }
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground">Producto</label>
-                <select name="product_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
-                  <option value="">Seleccionar producto</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.type} - {product.dimensions} {product.color ? `- ${product.color}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground">De Sede</label>
-                <select name="from_branch_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
-                  <option value="">Seleccionar sede origen</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>{branch.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground">A Sede</label>
-                <select name="to_branch_id" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required>
-                  <option value="">Seleccionar sede destino</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>{branch.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground">Cantidad</label>
-                <input name="quantity" type="number" min="1" className="mt-1 block w-full border border-border rounded px-3 py-2 bg-background text-foreground" required />
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Transferir</button>
-                <button type="button" onClick={() => setShowTransferForm(false)} className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80">Cancelar</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <TransferForm
+          onSuccess={() => setShowTransferForm(false)}
+          onCancel={() => setShowTransferForm(false)}
+        />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {Object.entries(inventoryByBranch).filter(([branch]) => branch !== 'Sin Sede' && branch !== 'acriestilo-cucuta').map(([branch, items]) => (
-          <div key={branch} className="bg-card rounded-lg border border-border overflow-hidden">
-            <div className="px-6 py-4 border-b border-border bg-muted/50">
-              <h3 className="text-lg font-semibold text-foreground">{branch}</h3>
-              <p className="text-sm text-muted-foreground">
-                {items.reduce((sum, item) => sum + item.quantity, 0)} productos total
-              </p>
-            </div>
+        {Object.entries(inventoryByBranch).map(([branch, items]) => {
+          const currentBranch = branches.find(b => b.name === branch)
+          return (
+            <div key={branch} className="bg-card rounded-lg border border-border overflow-hidden">
+              <div className="px-6 py-4 border-b border-border bg-muted/50">
+                <h3 className="text-lg font-semibold text-foreground">{branch}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {items.length} productos asignados
+                </p>
+              </div>
 
-            <div className="max-h-96 overflow-y-auto">
-              <div className="divide-y divide-border">
-                {items.map((item, index) => (
-                  <div key={index} className="px-6 py-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {item.products[0]?.type === 'acrilico_cast' ? 'Acrílico Cast' :
-                           item.products[0]?.type === 'espejo' ? 'Espejo' : 'Accesorios'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.products[0]?.dimensions}
-                        </p>
-                        {item.products[0]?.color && (
-                          <p className="text-xs text-muted-foreground">
-                            {item.products[0]?.color}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-foreground">
-                          {item.quantity}
-                        </p>
-                        <p className="text-xs text-muted-foreground">unidades</p>
-                      </div>
-                    </div>
+              <div className="px-6 py-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">
+                      {items.reduce((sum, item) => sum + item.quantity, 0)} unidades total
+                    </p>
                   </div>
-                ))}
+                  {currentBranch && mainBranch && branch !== mainBranch.name && (
+                    <button
+                      onClick={() => {
+                        // Unassign all products from this branch
+                        items.forEach(item => {
+                          handleTransfer(item.product?.id || 0, currentBranch.id, mainBranch.id, item.quantity)
+                        })
+                      }}
+                      className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                    >
+                      Desasignar Todo
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {Object.keys(inventoryByBranch).length === 0 && (
