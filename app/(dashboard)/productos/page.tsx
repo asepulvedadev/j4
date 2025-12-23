@@ -50,7 +50,7 @@ async function getImports() {
 function formatDimensions(dimensions: string): string {
   const parts = dimensions.split('x').map(part => {
     const num = parseFloat(part.trim())
-    return isNaN(num) ? part.trim() : (num / 10).toFixed(1)
+    return isNaN(num) ? part.trim() : (num / 10).toFixed(1).replace(/\.0$/, '')
   })
   return parts.join('x') + ' cm'
 }
