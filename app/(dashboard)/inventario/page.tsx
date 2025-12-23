@@ -50,7 +50,7 @@ async function getProducts() {
   const supabase = await createClient()
   const { data: products } = await supabase
     .from('products')
-    .select('id, type, dimensions, color, thickness')
+    .select('id, type, dimensions, color, thickness, quantity')
     .order('type', { ascending: false })
     .order('created_at', { ascending: false })
   return products || []
