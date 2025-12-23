@@ -27,9 +27,10 @@ CREATE TABLE branches (
 
 -- Insert initial branches
 INSERT INTO branches (name) VALUES
-  ('Cúcuta'),
-  ('Bucaramanga'),
-  ('Medellín');
+  ('acriestilo-cucuta'),
+  ('creatis-cucuta'),
+  ('acriestilo-bucaramanga'),
+  ('acriestilo-medellin');
 
 -- Imports table
 CREATE TABLE imports (
